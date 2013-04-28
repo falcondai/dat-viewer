@@ -1,4 +1,4 @@
-dat-viewer.py
+dat_viewer.py
 =============
 
 A viewer for dat files used at UChicago Towle's lab. 
