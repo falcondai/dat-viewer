@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
-#from PySide.QtGui import QListWidget, QListWidgetItem, QVBoxLayout, QPushButton, QIcon, QMainWindow, QApplication, QFileDialog
-from PySide.QtGui import *
+from PySide.QtGui import QListWidget, QListWidgetItem, QVBoxLayout, QPushButton, QIcon, QMainWindow, QApplication, QFileDialog
 from PySide.QtCore import Slot, QSize
 from mainwindow import Ui_MainWindow
 
@@ -11,10 +10,17 @@ from matplotlib import rc, pyplot as plt
 rc('axes',edgecolor='0.5')
 import numpy
 
+# some default configuration parameters
+_factor = 2.
+_size = 75
+_gain = 1.
+
 class MainWindow(QMainWindow):
 	app = None
 	ui = None
 	temp_pngs = []
+	gain = 1.
+	filename = None
 	
 	def __init__(self, application, parent=None):
 		super(MainWindow, self).__init__(parent)
@@ -23,12 +29,13 @@ class MainWindow(QMainWindow):
 		self.ui.setupUi(self)
 		
 		self.ui.openButton.clicked.connect(self.open_file)
+		self.ui.incGainBtn.clicked.connect(self.increase_gain)
+		self.ui.decGainBtn.clicked.connect(self.decrease_gain)
 		self.ui.copyButton.clicked.connect(self.copy_selections)
 		
 	@Slot()
 	def copy_selections(self):
 		items = self.ui.listWidget.selectedItems()
-		#import pdb; pdb.set_trace()
 		channel_numbers = ' '.join([item.text() for item in items])
 		cb = self.app.clipboard()
 		cb.setText(channel_numbers)
@@ -41,12 +48,27 @@ class MainWindow(QMainWindow):
 
 		if filename != '':
 			print 'Opening %s...' % filename
+			self.gain = _gain
+			self.draw_dat(filename)
+			self.set_filename(filename)
+
+	def set_filename(self, filename):
+		if filename:
+			self.filename = filename
+			self.setWindowTitle('dat File Viewer [%s]' % self.filename)
+
+	def draw_dat(self, filename=None, size=_size, gain=None):
+		if filename == None:
+			filename = self.filename
+		if gain == None:
+			gain = self.gain
+
+		if filename != None:
 			with open(filename, 'r') as fp:
 				self.empty_list()
-				self.plot_traces(fp)
-			self.setWindowTitle('dat File Viewer [%s]' % filename)
+				self.plot_traces(fp, size, gain)
 
-	def plot_traces(self, fp, size=75):
+	def plot_traces(self, fp, size, gain):
 		t0 = time.time()
 		
 		reader = csv.reader(fp, delimiter='\t')
@@ -63,7 +85,7 @@ class MainWindow(QMainWindow):
 		lw = self.ui.listWidget
 		lw.setIconSize(QSize(size, size))
 		for i, trace in enumerate(traces):
-			icon = QIcon(self.gen_fig_png(trace, maximum, minimum, count))
+			icon = QIcon(self.gen_fig_png(trace, maximum / gain, minimum / gain, count))
 			item = QListWidgetItem(icon, str(i+1))
 			lw.addItem(item)
 			
@@ -73,7 +95,7 @@ class MainWindow(QMainWindow):
 		with warnings.catch_warnings():
 			warnings.simplefilter('ignore')
 			png_path = '%s.png' % os.tempnam()
-		plt.plot(map(lambda x: x*10, trace), color='black', linewidth=4.)
+		plt.plot(trace, color='black', linewidth=4.)
 		
 		# artistic adjustment
 		fig = plt.gcf()
@@ -89,6 +111,18 @@ class MainWindow(QMainWindow):
 		
 		self.temp_pngs.append(png_path)
 		return png_path
+	
+	@Slot()
+	def increase_gain(self, factor=_factor):
+		self.gain *= factor
+		print 'Gain = %.2f' % self.gain
+		self.draw_dat(gain=self.gain)
+	
+	@Slot()
+	def decrease_gain(self, factor=_factor):
+		self.gain /= factor
+		print 'Gain = %.2f' % self.gain
+		self.draw_dat(gain=self.gain)
 	
 	def dragEnterEvent(self, event):
 		if event.mimeData().hasFormat('text/uri-list'):
