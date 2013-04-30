@@ -73,7 +73,7 @@ class MainWindow(QMainWindow):
 		with warnings.catch_warnings():
 			warnings.simplefilter('ignore')
 			png_path = '%s.png' % os.tempnam()
-		plt.plot(trace, color='black', linewidth=4.)
+		plt.plot(map(lambda x: x*10, trace), color='black', linewidth=4.)
 		
 		# artistic adjustment
 		fig = plt.gcf()
